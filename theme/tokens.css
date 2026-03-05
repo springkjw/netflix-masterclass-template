@@ -1,0 +1,26 @@
+:root {
+  --font-body: 'Pretendard Variable', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+  --font-title: 'Sora', 'Pretendard Variable', sans-serif;
+
+  --color-bg: #0b0b0f;
+  --color-bg-soft: #15151b;
+  --color-surface: #1b1b24;
+  --color-text: #f8f8f9;
+  --color-text-soft: #b7b7c1;
+  --color-brand: #e50914;
+  --color-brand-hover: #f43139;
+  --color-line: #2c2c3a;
+
+  --space-1: 0.5rem;
+  --space-2: 0.75rem;
+  --space-3: 1rem;
+  --space-4: 1.25rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+
+  --shadow-elevated: 0 22px 45px rgba(0, 0, 0, 0.45);
+}
