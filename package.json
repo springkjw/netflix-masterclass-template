@@ -11,8 +11,7 @@
     "lint": "eslint --config eslint.config.mjs .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "deploy:dispatch": "node ./assets/scripts/deployScript.mjs",
-    "pr": "bash ./assets/scripts/push-and-pr.sh"
+    "deploy:ec2": "bash ./assets/scripts/deploy-ec2.sh"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.85.6",

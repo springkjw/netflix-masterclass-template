@@ -91,8 +91,13 @@ docker compose up --build
 ## 배포 자동화
 
 - CI: `.github/workflows/ci.yml`
-- (선택) ECS 배포: `.github/workflows/deploy-ecs.yml`
-- (선택) 로컬 디스패치 스크립트: `yarn deploy:dispatch`
+- EC2 배포 스크립트: `assets/scripts/deploy-ec2.sh`
+
+사용 예시:
+
+```bash
+yarn deploy:ec2 ~/.ssh/my-key.pem ubuntu@<EC2_PUBLIC_IP> main
+```
 
 ## AWS 배포 참고
 
