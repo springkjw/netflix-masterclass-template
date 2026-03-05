@@ -4,6 +4,7 @@ import { getAllContents, getContentsByType } from '@services';
 
 export default async function HomePage() {
   // [강의포인트] 서버 컴포넌트에서 데이터를 먼저 불러오면 초기 렌더 비용을 줄일 수 있습니다.
+
   const [allContents, movies, series, animations] = await Promise.all([
     getAllContents(),
     getContentsByType('movie'),

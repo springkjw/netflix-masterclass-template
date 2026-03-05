@@ -1,31 +1,31 @@
-# AWS 배포 가이드 (강의 상세판)
+# AWS 배포 가이드 (EC2 직접 배포)
 
-## 0) 배포 아키텍처(권장)
+## 0) 배포 아키텍처(수강생 권장)
 
-1. 로컬에서 Docker 이미지 빌드
-2. Amazon ECR(이미지 저장소)에 푸시
-3. Amazon ECS Fargate 서비스로 실행
-4. ALB(Application Load Balancer) + ACM(HTTPS 인증서) 연결
+1. 로컬에서 앱 빌드 확인
+2. EC2 서버(ubuntu)에 SSH 접속
+3. Docker + Docker Compose 설치
+4. 레포 클론 후 컨테이너 실행
+5. 보안그룹/도메인 설정
 
-> [강의포인트] 실습에서는 "한 번 배포 성공"보다 "다음 배포도 안전하게 반복"이 더 중요합니다.
+> [강의포인트] ECS/ECR보다 러닝커브가 낮아서 특강/미션에 적합합니다.
 
 ## 1) 사전 준비
 
-- AWS CLI 설치 및 로그인 프로파일 설정
-- AWS 리전 결정(예: `ap-northeast-2`)
-- ECR 리포지토리 생성
-- ECS 클러스터/서비스 생성 권한 확인
+- EC2 인스턴스 생성 (Ubuntu 22.04 권장)
+- 보안 그룹 오픈
+  - `22` (SSH)
+  - `80` (HTTP)
+  - `443` (HTTPS, 선택)
+  - `3000` (초기 테스트용, 선택)
+- SSH 키 페어 준비 (`.pem`)
 
-## 2) 로컬 빌드 + Docker 동작 확인
+## 2) 로컬에서 사전 검증
 
 ```bash
-# 앱 빌드 확인
+yarn install
 yarn build
-
-# Docker 이미지 생성
 docker build -t netflix-masterclass-template:1.0.0 .
-
-# 로컬 실행 테스트
 docker run --rm -p 3000:3000 netflix-masterclass-template:1.0.0
 ```
 
@@ -33,65 +33,82 @@ docker run --rm -p 3000:3000 netflix-masterclass-template:1.0.0
 
 - `http://localhost:3000` 접속
 - 홈/검색/상세 라우팅 정상 동작
-- 브라우저 콘솔 에러 없음
+- 콘솔 에러 없음
 
-## 3) ECR 푸시 절차
-
-아래 값은 예시이며, 실제 수업에서는 placeholder를 각 팀 값으로 바꿉니다.
-
-- `<ACCOUNT_ID>`: AWS 계정 ID
-- `<REGION>`: `ap-northeast-2` 등
-- `<REPO>`: ECR 리포지토리 이름
+## 3) EC2 접속 및 Docker 설치
 
 ```bash
-# 1) ECR 로그인
-aws ecr get-login-password --region <REGION> \
-  | docker login --username AWS --password-stdin <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com
+ssh -i <key.pem> ubuntu@<EC2_PUBLIC_IP>
 
-# 2) 태그 지정
-docker tag netflix-masterclass-template:1.0.0 \
-  <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/<REPO>:1.0.0
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg
 
-# 3) 푸시
-docker push <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/<REPO>:1.0.0
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+sudo usermod -aG docker $USER
+newgrp docker
 ```
 
-> [강의포인트] 태그는 `latest`만 쓰지 말고 `1.0.0`, `2026-03-05`처럼 추적 가능한 규칙을 사용합니다.
+## 4) 프로젝트 배포
 
-## 4) ECS Fargate 배포 순서
+```bash
+git clone https://github.com/<YOUR_ID>/netflix-masterclass-template.git
+cd netflix-masterclass-template
 
-1. ECS Task Definition 생성
-   - 컨테이너 이미지: `.../<REPO>:1.0.0`
-   - 컨테이너 포트: `3000`
-   - CPU/Memory 예: `0.25 vCPU / 0.5 GB`
-2. ECS Service 생성 (Launch type: Fargate)
-3. ALB Target Group 연결
-4. 보안 그룹에서 ALB(80/443) 허용, ECS는 ALB에서 오는 트래픽만 허용
+cp .env.example .env.local
 
-검증 포인트:
+docker compose up -d --build
+docker compose ps
+```
 
-- ECS 서비스 상태 `Running`
-- Target Group health check `healthy`
-- ALB DNS로 접속 시 페이지 로드 정상
+검증:
 
-## 5) HTTPS(ACM) 연결
+- `http://<EC2_PUBLIC_IP>:3000` 접속
 
-1. ACM에서 도메인 인증서 발급
-2. ALB 리스너 443 생성 후 인증서 연결
-3. 80 → 443 리다이렉트 설정
+## 5) 무중단에 가까운 업데이트(수업용 간단 버전)
 
-## 6) 운영 체크리스트
+```bash
+cd netflix-masterclass-template
+git pull origin main
+docker compose up -d --build
+docker image prune -f
+```
+
+> [강의포인트] 롤백은 `git checkout <이전_커밋>` 후 동일 명령으로 복구할 수 있습니다.
+
+## 6) 운영형(선택): 80/443 연결
+
+### 빠른 방법
+
+- Nginx 리버스 프록시를 두고 `80 -> 3000` 전달
+- 도메인 연결 후 Certbot으로 HTTPS 발급
+
+### 수업에서 설명할 최소 개념
+
+- "앱 포트(3000)와 외부 포트(80/443) 분리"
+- "보안그룹 최소 개방"
+- "TLS 인증서는 서버 신뢰의 기본"
+
+## 7) 운영 체크리스트
 
 - [ ] `yarn build` 성공
-- [ ] Docker 로컬 실행 성공
-- [ ] ECR 푸시 완료
-- [ ] ECS 배포 후 `healthy` 확인
-- [ ] 도메인/SSL 적용
-- [ ] 메인/검색/상세 페이지 QA
+- [ ] `docker compose up -d --build` 성공
+- [ ] EC2 보안 그룹 설정 확인
+- [ ] 페이지 진입/검색/상세 동작 확인
+- [ ] 배포 후 로그 확인 (`docker compose logs -f`)
 
-## 7) 수업 중 꼭 짚을 포인트
+## 8) 확장 트랙(강사용)
 
-- "개발 환경과 배포 환경의 차이"
-- "이미지 태그 전략 (`v1`, `v2`)"
-- "롤백 가능한 배포 설계 (이전 태그 재배포)"
-- "보안 그룹 최소 권한 원칙"
+- 수강생 기본 트랙: EC2 직접 배포
+- 심화 트랙: ECS/ECR + GitHub Actions 자동 배포
+
+필요 시 프로젝트 내 `.github/workflows/deploy-ecs.yml`을 심화 예제로 활용하세요.
